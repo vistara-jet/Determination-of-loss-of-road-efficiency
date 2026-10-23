@@ -49,7 +49,13 @@ no longer used for bituminous potholes.
    shadows, parked vehicles, an off-centre camera, a footpath close to asphalt
    colour), the detected edges were within 7.5 cm of the true edges on a 7 m
    carriageway. Straight roads only.
-2. **Capacity.** `C0 = DSV / 0.70` (DSV is the LOS C volume, V/C = 0.70).
+2. **Estimated Capacity (LOS C Assumption).**
+
+   ```
+   Capacity = DSV / 0.70
+   ```
+   Assumption: DSV corresponds to LOS C operating conditions (V/C = 0.70).
+   This capacity is written C0 in the formulas below.
    For one direction of a divided road, DSV is halved.
 3. **Lane-by-lane geometric capacity.** `C_geom = Σ (C0/n) × u_i × p_i`
    - `u_i`: usable free width in lane *i* ÷ lane width. Free gaps narrower than
@@ -94,7 +100,7 @@ no longer used for bituminous potholes.
 | 8 | Vendor/cart always vetoed | Keeps the more confident label |
 | 9 | Vehicles = moving | Kept and flagged: a single photo cannot show motion |
 | 10 | tree_on_road listed | Classes read from the model |
-| 11 | DSV = capacity | C0 = DSV/0.70; V/C and LOS reported |
+| 11 | DSV = capacity | Estimated Capacity (LOS C Assumption) = DSV / 0.70; V/C and LOS reported |
 | 12 | Linear width factor | Lane-by-lane usable width; unusable slivers |
 | 13 | Full-length blockage | Bottleneck principle; parking by occupancy |
 | 14 | Multiplicative factors | Draft IRC:106 Eq. 6 |

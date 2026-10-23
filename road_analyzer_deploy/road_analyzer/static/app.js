@@ -565,7 +565,7 @@
       const noteEl = document.getElementById("dsv-note");
       if (noteEl) {
         noteEl.textContent =
-          `LOS C design volume · capacity C0 = DSV ÷ 0.70 = ${c0.toLocaleString("en-IN")} PCU/hr · ` +
+          `Estimated Capacity (LOS C Assumption) = DSV / 0.70 = ${c0.toLocaleString("en-IN")} PCU/hr · ` +
           `operating speed ${freeSpd} km/h (IRC:106 2022 draft, Table 3)`;
       }
       dsvPreview.style.display = "";
@@ -807,7 +807,7 @@
           <div class="big-number">${fmt(data.reduced_capacity_pcu_hr, 0)} <small>PCU/hr usable capacity</small></div>
           <div class="compare">
             <div class="item">
-              <div class="label">Capacity C<sub>0</sub> = DSV ÷ 0.70 (IRC:106)</div>
+              <div class="label">Estimated Capacity (LOS C Assumption)</div>
               <div class="val orig">${fmt(data.original_capacity_pcu_hr, 0)} PCU/hr</div>
               ${data.original_capacity_vehicles_hr ? `<div class="val-sub">${fmt(data.original_capacity_vehicles_hr, 0)} vehicles/hr</div>` : ""}
             </div>
@@ -1254,7 +1254,7 @@
         </div>
         <table class="stretch-table irc-steps">
           <tr><td>Design Service Volume (IRC:106-1990 Table 2, LOS C)</td><td>${fmt(data.design_service_volume_pcu_hr,0)} PCU/h</td></tr>
-          <tr><td>Capacity C<sub>0</sub> = DSV ÷ 0.70</td><td>${fmt(data.original_capacity_pcu_hr,0)} PCU/h</td></tr>
+          <tr><td>Estimated Capacity (LOS C Assumption): Capacity = DSV / 0.70<div class="cap-assume">Assumption: DSV corresponds to LOS C operating conditions (V/C = 0.70)</div></td><td>${fmt(data.original_capacity_pcu_hr,0)} PCU/h</td></tr>
           <tr><td>Geometric capacity Σ C<sub>lane</sub> × u<sub>i</sub> × p<sub>i</sub></td><td>${fmt(calc.geometric_capacity_pcu_hr,0)} PCU/h</td></tr>
           <tr><td>Side friction F<sub>OP</sub> × F<sub>BS</sub> × F<sub>AC</sub> × F<sub>PD</sub> (draft IRC:106 Eq. 6)</td><td>${f.F_OP} × ${f.F_BS} × ${f.F_AC} × ${f.F_PD}</td></tr>
           <tr><td><b>Effective capacity C<sub>eff</sub></b></td><td><b>${fmt(data.reduced_capacity_pcu_hr,0)} PCU/h</b></td></tr>

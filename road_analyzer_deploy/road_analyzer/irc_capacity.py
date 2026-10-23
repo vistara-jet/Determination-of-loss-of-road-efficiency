@@ -77,7 +77,9 @@ FRINGE_ALREADY_INCLUDES: Dict[str, set] = {
 }
 
 # IRC:106 design service volumes are set at LOS C. The upper V/C limit of
-# LOS C is 0.70, so capacity = DSV / 0.70.
+# LOS C is 0.70, so:
+#   Estimated Capacity (LOS C Assumption): Capacity = DSV / 0.70
+#   Assumption: DSV corresponds to LOS C operating conditions (V/C = 0.70)
 VC_AT_DESIGN_SERVICE_VOLUME = 0.70
 
 

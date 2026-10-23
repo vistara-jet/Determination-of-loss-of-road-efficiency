@@ -185,7 +185,9 @@ def generate_department_report_pdf(result: dict, output_path: str,
         ["Total carriageway width", f"{road_config.get('total_width_m', '-')} m"],
         ["Number of lanes", str(road_config.get("num_lanes", "-"))],
         ["Design Service Volume (IRC:106 Table 2, LOS C)", f"{result.get('design_service_volume_pcu_hr', '-')} PCU/hr"],
-        ["Capacity C0 = DSV / 0.70", f"{result.get('original_capacity_pcu_hr', '-')} PCU/hr"],
+        ["Estimated Capacity (LOS C Assumption)",
+         f"{result.get('original_capacity_pcu_hr', '-')} PCU/hr  (Capacity = DSV / 0.70; "
+         f"assumption: DSV corresponds to LOS C operating conditions, V/C = 0.70)"],
         ["Reduced capacity (with obstructions)", f"{result.get('reduced_capacity_pcu_hr', '-')} PCU/hr"],
         ["Capacity loss", f"{result.get('capacity_loss_pct', '-')}%"],
         ["V/C at design demand", f"{result.get('vc_ratio_ideal', '-')} -> {result.get('vc_ratio', '-')}"],
@@ -269,7 +271,7 @@ def generate_department_report_pdf(result: dict, output_path: str,
     story.append(HRFlowable(width="100%", color=colors.HexColor("#cbd5e1"), thickness=1))
     story.append(Spacer(1, 6))
     story.append(Paragraph(
-        "Generated automatically. Capacity: IRC:106-1990 Table 2 (C0 = DSV/0.70); side-friction "
+        "Generated automatically. Estimated Capacity (LOS C Assumption) = IRC:106-1990 Table 2 DSV / 0.70; side-friction "
         "factors and LOS: IRC:106 (2022 draft revision); potholes: IRC:82-2015. Assumed inputs are "
         "listed in the analysis JSON under 'assumptions'. Field verification is recommended before "
         "dispatching maintenance crews.",

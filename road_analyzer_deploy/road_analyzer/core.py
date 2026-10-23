@@ -15,7 +15,9 @@ Pipeline for one photo
    Objects that fall outside the carriageway are ignored.
 3. Potholes: IRC:82-2015 class from measured width (and depth if entered);
    capacity factor from the speed drop via draft IRC:106 Eq. 5.
-4. Capacity: C0 = DSV/0.70; lane-by-lane usable width and pothole factors;
+4. Capacity: Estimated Capacity (LOS C Assumption) = DSV / 0.70, assuming
+   the DSV corresponds to LOS C operating conditions (V/C = 0.70); then
+   lane-by-lane usable width and pothole factors;
    then draft IRC:106 Eq. 6 factors for parking, bus stops, access points
    and pedestrians (only those NOT already included in the chosen
    IRC:106-1990 traffic-condition column).
@@ -593,7 +595,13 @@ class RoadAnalyzer:
                 "carriageway_key": p["carriageway_key"],
                 "fringe_condition": p["fringe"],
                 "fringe_desc": FRINGE_CONDITION_DESC.get(p["fringe"], ""),
-                "source": "IRC:106-1990 Table 2 DSV (LOS C); capacity = DSV / 0.70",
+                "source": "IRC:106-1990 Table 2 DSV; Estimated Capacity (LOS C Assumption) = DSV / 0.70",
+            },
+            "capacity_basis": {
+                "label": "Estimated Capacity (LOS C Assumption)",
+                "formula": "Capacity = DSV / 0.70",
+                "assumption": "DSV corresponds to LOS C operating conditions (V/C = 0.70)",
+                "value_pcu_hr": round(C0, 1),
             },
             "free_flow_speed_kmh": p["operating_speed_kmh"],
             "operating_speed_kmh": p["operating_speed_kmh"],
@@ -628,7 +636,7 @@ class RoadAnalyzer:
                                           "F_AC": full["f_ac"], "F_PD": full["f_pd"]},
                 "lanes": full["lanes"],
                 "avg_pcu_per_vehicle": round(avg_pcu, 3),
-                "formula": (f"C0 = {p['dsv_scope']:.0f}/0.70 = {C0:.0f} PCU/h; "
+                "formula": (f"Estimated Capacity (LOS C Assumption) = DSV / 0.70 = {p['dsv_scope']:.0f} / 0.70 = {C0:.0f} PCU/h; "
                             f"C_geom = sum(C_lane x u_i x p_i) = {full['c_geom']:.0f}; "
                             f"C_eff = C_geom x {factors_str} = {c_eff:.0f} PCU/h"),
             },
@@ -937,8 +945,9 @@ def assumption_register(result: dict, p: dict, ex: dict, cfg: dict, thr_calibrat
             ("Homography from auto-detected road edges" if (ex.get("edge_detection") or {}).get("source") == "auto"
              else "Homography from 4 marked corners") if ex["calibrated"] else "Photo edges = carriageway edges",
             "measured" if ex["calibrated"] else "assumed"),
-        row("Baseline", f"DSV {p['dsv_scope']:.0f} PCU/h -> capacity {p['capacity_c0']:.0f} PCU/h",
-            "IRC:106-1990 Table 2; DSV at LOS C (V/C 0.70)", "IRC"),
+        row("Estimated Capacity (LOS C Assumption)",
+            f"Capacity = DSV / 0.70 = {p['dsv_scope']:.0f} / 0.70 = {p['capacity_c0']:.0f} PCU/h",
+            "DSV (IRC:106-1990 Table 2) corresponds to LOS C operating conditions (V/C = 0.70)", "assumed"),
         row("Photographed stream", "one direction of a divided road" if p["photo_covers"] == "one_direction"
             else "whole carriageway",
             "Divided-road DSV taken as two-way total and halved" if p["photo_covers"] == "one_direction" else "-",
