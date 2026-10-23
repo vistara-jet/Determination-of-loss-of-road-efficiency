@@ -290,6 +290,7 @@ def _opt_float(value: str, name: str, lo: float = 0.0, hi: float = 1e9) -> Optio
 
 def advanced_inputs(
     photo_covers:            str = Form("whole"),
+    auto_edges:              str = Form("auto"),
     road_edge_points:        str = Form(""),
     calib_length_m:          str = Form(""),
     operating_speed_kmh:     str = Form(""),
@@ -308,6 +309,7 @@ def advanced_inputs(
     sample_every_m:          str = Form(""),
 ) -> dict:
     out: dict = {"photo_covers": photo_covers or "whole",
+                 "auto_edges": "off" if auto_edges == "off" else "auto",
                  "bus_stop_type": bus_stop_type or "none"}
     if out["photo_covers"] not in ("whole", "one_direction"):
         raise HTTPException(400, "photo_covers must be 'whole' or 'one_direction'.")
@@ -477,6 +479,9 @@ def analyze_image(
     json_path = result.pop("_json_path", None)
     result.pop("_csv_path", None)
     result["job_id"] = job_id
+    for key in ("edges_image", "birdseye_image"):
+        if result.get(key):
+            result[key + "_url"] = f"/api/jobs/{job_id}/view/{result[key]}"
 
     # analyser.analyse_image() builds its own road_config copy internally
     # and may not know about the new data_collection_date field, so make
@@ -805,6 +810,35 @@ async def analyze_video(
 # ----------------------------------------------------------------
 # Job status polling
 # ----------------------------------------------------------------
+@app.post("/api/detect-edges")
+def detect_edges(file: UploadFile = File(...)):
+    """Detect the carriageway edges on one photo (or a video frame sent as an
+    image) and return the 4 corners in the photo's own pixels, for the
+    corner-marking tool to show and the user to accept or adjust."""
+    import numpy as np
+    import cv2
+    from road_analyzer.road_edges import detect_road_corners
+    data = np.frombuffer(file.file.read(), np.uint8)
+    img = cv2.imdecode(data, cv2.IMREAD_COLOR)
+    if img is None:
+        raise HTTPException(400, "Could not read the image.")
+    det = detect_road_corners(img)
+    return {"points": det["points"], "candidate_points": det.get("candidate_points"),
+            "confidence": det["confidence"], "method": det["method"], "reason": det["reason"],
+            "image_size": {"width": int(img.shape[1]), "height": int(img.shape[0])}}
+
+
+@app.get("/api/jobs/{job_id}/view/{name}")
+def get_job_view(job_id: str, name: str):
+    """Serve the edge overlay / bird's-eye images saved with a job."""
+    if not re.fullmatch(r"[A-Za-z0-9_.-]+_(edges|birdseye)\.jpg", name) or not re.fullmatch(r"[a-z]+_[0-9a-f]{10}", job_id):
+        raise HTTPException(404, "Not found.")
+    path = RESULTS_DIR / job_id / name
+    if not path.exists():
+        raise HTTPException(404, "Not found.")
+    return FileResponse(str(path), media_type="image/jpeg")
+
+
 @app.get("/api/jobs/{job_id}")
 def get_job(job_id: str):
     job = JOBS.get(job_id)

@@ -74,6 +74,7 @@
               <div class="calib-help" id="calib-help">Click the 4 carriageway corners: near-left, near-right, far-right, far-left.</div>
               <canvas id="calib-canvas"></canvas>
               <div class="camera-modal-actions">
+                <button type="button" id="calib-auto-btn">Detect automatically</button>
                 <button type="button" id="calib-undo-btn">Undo</button>
                 <button type="button" id="calib-done-btn" disabled>Use these corners</button>
                 <button type="button" id="calib-clear-btn">Clear calibration</button>
@@ -193,7 +194,14 @@
                 <div class="field field-wide">
                   <button type="button" class="adv-btn" id="calib-btn">Mark carriageway corners on the photo</button>
                   <input type="hidden" id="road_edge_points" name="road_edge_points">
-                  <div class="field-hint" id="calib-status">Not calibrated: the photo edges will be taken as the carriageway edges.</div>
+                  <div class="field-hint" id="calib-status">Not marked: road edges will be detected automatically.</div>
+                </div>
+                <div class="field">
+                  <label for="auto_edges">Road edges when not marked</label>
+                  <select id="auto_edges" name="auto_edges">
+                    <option value="auto" selected>Detect automatically</option>
+                    <option value="off">Off: photo edges = carriageway edges</option>
+                  </select>
                 </div>
                 <div class="field">
                   <label for="calib_length_m">Distance between near and far marks (m)</label>

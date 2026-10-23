@@ -36,6 +36,7 @@ import cv2
 import numpy as np
 
 from road_analyzer import irc_capacity as irc
+from road_analyzer import road_edges
 from road_analyzer.irc_capacity import (  # re-exported for app.py / reports
     IRC106_DSV, IRC106_DSV_LABELS, FRINGE_CONDITION_DESC, OPERATING_SPEED_KMH,
     IRC106_PCU_TABLE1, DEFAULT_COMPOSITION, get_irc106_dsv, union_length as union_of_intervals,
@@ -191,6 +192,7 @@ class RoadGeometry:
             self._wsign = 1.0 if (self.H @ np.array([mid[0], mid[1], 1.0]))[2] > 0 else -1.0
         self.method = ("homography (4 marked carriageway corners)" if self.H is not None
                        else "uncalibrated: photo width = carriageway width, no perspective")
+        self.src = (np.float32(pts) * scale) if pts else None
 
     @property
     def calibrated(self) -> bool:
@@ -432,7 +434,22 @@ class RoadAnalyzer:
             img = cv2.resize(img, (int(w0 * scale), int(h0 * scale)), interpolation=cv2.INTER_AREA)
         h, w = img.shape[:2]
 
-        geo = RoadGeometry(road_config, w, h, scale)
+        # Road edges: the user's marked corners win; otherwise detect them.
+        edge_info = {"source": "marked" if road_config.get("road_edge_points") else "none"}
+        geo_cfg = road_config
+        if not road_config.get("road_edge_points") and road_config.get("auto_edges", "auto") != "off":
+            det = road_edges.detect_road_corners(img)
+            edge_info = {"source": "auto", "confidence": det["confidence"], "method": det["method"],
+                         "reason": det["reason"], "accepted": det["points"] is not None}
+            if det["points"] is not None:
+                # detector returns points on this (possibly resized) image;
+                # RoadGeometry expects original-photo pixels.
+                geo_cfg = dict(road_config, road_edge_points=[[x / scale, y / scale] for x, y in det["points"]])
+                edge_info["points_original_px"] = geo_cfg["road_edge_points"]
+        geo = RoadGeometry(geo_cfg, w, h, scale)
+        if edge_info["source"] == "auto" and geo.calibrated:
+            geo.method = (f"homography from auto-detected road edges "
+                          f"({edge_info['method']}, confidence {edge_info['confidence']:.2f})")
         detections, vetoed = self._detect(img, Path(image_path).name)
         W = geo.W
 
@@ -459,7 +476,9 @@ class RoadAnalyzer:
                 "geometry_method": geo.method, "calibrated": geo.calibrated,
                 "calib_length_m": geo.L, "defects": defects, "off_road": off_road,
                 "vehicles_detected": vehicles, "vetoed": vetoed,
-                "has_parking": any(x["cls"] == "illegal_parking" for x in defects)}
+                "has_parking": any(x["cls"] == "illegal_parking" for x in defects),
+                "edge_detection": edge_info,
+                "_img": img, "_H": geo.H, "_src": geo.src}
 
     # ---------------- stage 2: capacity + LOS ----------------
     def assemble(self, ex: dict, road_config: dict,
@@ -634,6 +653,7 @@ class RoadAnalyzer:
             "vehicles_detected": ex["vehicles_detected"],
             "per_defect": per_defect,
             "geometry": {"method": ex["geometry_method"], "calibrated": ex["calibrated"],
+                         "edge_detection": {k: v for k, v in (ex.get("edge_detection") or {}).items()},
                          "calib_length_m": ex.get("calib_length_m"),
                          "ignored_outside_carriageway": ex["off_road"]},
             "roadrunner_obstacles": [{
@@ -649,9 +669,14 @@ class RoadAnalyzer:
 
     def _warnings(self, ex, p, full, cfg) -> List[str]:
         w = []
+        ed = ex.get("edge_detection") or {}
+        if ed.get("source") == "auto" and ex["calibrated"]:
+            w.append(f"Road edges detected automatically (confidence {ed['confidence']:.2f}). "
+                     "Check the edge overlay; if the lines miss the carriageway, mark the corners by hand.")
         if not ex["calibrated"]:
+            why = f" Automatic edge detection: {ed['reason']}" if ed.get("source") == "auto" and ed.get("reason") else ""
             w.append("Photo not calibrated: lateral positions assume the photo edges are the carriageway edges. "
-                     "Mark the 4 carriageway corners for perspective-correct measurement.")
+                     "Mark the 4 carriageway corners for perspective-correct measurement." + why)
         if full["has_parking"] and p["parking_occupancy_pct"] is None and "parking" not in p["fringe_includes"]:
             w.append("Parking detected but its occupancy along the segment is unknown: lowest IRC band (<25 %, F_OP 0.70) used. "
                      "Analyse a batch/video of the stretch or enter the measured occupancy.")
@@ -675,7 +700,35 @@ class RoadAnalyzer:
         result = self.assemble(ex, road_config, occupancy_override)
         if save_outputs:
             self._save(result, image_path, output_dir)
+            self._save_views(ex, result, road_config, image_path, output_dir)
         return result
+
+    @staticmethod
+    def _save_views(ex: dict, result: dict, cfg: dict, image_path: str, output_dir: Optional[str]) -> None:
+        """Edge overlay on the photo and a top-down (bird's-eye) view of the
+        calibrated stretch with each detection's footprint."""
+        result["edges_image"] = result["birdseye_image"] = None
+        if ex.get("_H") is None:
+            return
+        out_dir = Path(output_dir) if output_dir else Path(image_path).parent
+        stem = Path(image_path).stem
+        try:
+            ov = road_edges.draw_edges_overlay(ex["_img"], ex["_src"].tolist())
+            cv2.imwrite(str(out_dir / f"{stem}_edges.jpg"), ov, [cv2.IMWRITE_JPEG_QUALITY, 85])
+            result["edges_image"] = f"{stem}_edges.jpg"
+            W = float(cfg["total_width_m"])
+            L = float(ex["calib_length_m"]) if ex.get("calib_length_m") else W
+            lanes = result["capacity_calculation"]["lanes_in_photo"]
+            ppm = max(20.0, min(60.0, 900.0 / max(W, L)))
+            top = road_edges.birdseye_view(ex["_img"], ex["_H"], W, L, lanes, ex["defects"], px_per_m=ppm)
+            cv2.imwrite(str(out_dir / f"{stem}_birdseye.jpg"), top, [cv2.IMWRITE_JPEG_QUALITY, 85])
+            result["birdseye_image"] = f"{stem}_birdseye.jpg"
+            result["birdseye_note"] = (f"Top-down view of the marked stretch, {W:g} m wide x {L:g} m long."
+                                       if ex.get("calib_length_m") else
+                                       f"Top-down view, {W:g} m wide. Along-road length is not to scale "
+                                       f"(enter the near-far distance to scale it).")
+        except Exception as e:
+            logger.warning("Could not save geometry views: %s", e)
 
     @staticmethod
     def _save(result: dict, image_path: str, output_dir: Optional[str]) -> None:
@@ -743,7 +796,10 @@ class RoadAnalyzer:
         extracts, errors = [], []
         for pth in image_paths:
             try:
-                extracts.append(self.extract(pth, road_config))
+                ex = self.extract(pth, road_config)
+                for k in ("_img", "_H", "_src"):
+                    ex.pop(k, None)          # keep memory flat across many photos
+                extracts.append(ex)
             except Exception as e:
                 errors.append({"image": Path(pth).name, "error": str(e)})
         occ = self._measured_occupancy(extracts, road_config)
@@ -803,6 +859,8 @@ class RoadAnalyzer:
                     try:
                         cv2.imwrite(str(fp), frame)
                         ex = self.extract(str(fp), road_config)
+                        for k in ("_img", "_H", "_src"):
+                            ex.pop(k, None)
                         ex["timestamp_sec"], ex["frame_index"] = frame_idx / fps, frame_idx
                         extracts.append(ex)
                     except Exception as e:
@@ -876,7 +934,8 @@ def assumption_register(result: dict, p: dict, ex: dict, cfg: dict, thr_calibrat
 
     rows = [
         row("Carriageway geometry", ex["geometry_method"],
-            "Homography from 4 marked corners" if ex["calibrated"] else "Photo edges = carriageway edges",
+            ("Homography from auto-detected road edges" if (ex.get("edge_detection") or {}).get("source") == "auto"
+             else "Homography from 4 marked corners") if ex["calibrated"] else "Photo edges = carriageway edges",
             "measured" if ex["calibrated"] else "assumed"),
         row("Baseline", f"DSV {p['dsv_scope']:.0f} PCU/h -> capacity {p['capacity_c0']:.0f} PCU/h",
             "IRC:106-1990 Table 2; DSV at LOS C (V/C 0.70)", "IRC"),

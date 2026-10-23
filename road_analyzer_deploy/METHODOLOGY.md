@@ -22,12 +22,33 @@ no longer used for bituminous potholes.
 
 ## Formulas
 
-1. **Geometry.** When the 4 carriageway corners are marked (near-left,
-   near-right, far-right, far-left), a homography *H* maps image pixels to
-   road-plane metres. Standing objects use the bottom edge of their box
-   (ground contact); potholes use all four corners. Objects outside the
-   carriageway are ignored. Without marks, `x_m = x_px × W / image_width`
-   (flagged).
+1. **Geometry.** The 4 carriageway corners (near-left, near-right, far-right,
+   far-left) define a homography *H* that maps image pixels to road-plane
+   metres. Standing objects use the bottom edge of their box (ground
+   contact); potholes use all four corners. Objects outside the carriageway
+   are ignored. The corners come from:
+   - the user's marks, when given; otherwise
+   - **automatic edge detection** (`road_edges.py`):
+     1. The asphalt colour is sampled at the bottom centre of the photo.
+     2. Connected pixels within a lightness/colour tolerance form the road
+        region.
+     3. Each row's left and right boundary is extended across a painted edge
+        line (IRC:35) when asphalt lies beyond it; a kerb is not crossed.
+     4. A robust (RANSAC) straight line is fitted to each side, so parked
+        vehicles and vendors cutting into the edge do not bend it.
+     5. The near line is the bottom of the road; the far line is 75 % of the
+        way to the vanishing point.
+
+     The detection is rejected, with a reason, when the surface does not look
+     like a road or covers less than 40 % of the photo width at the bottom.
+   - If neither is available, `x_m = x_px × W / image_width` is used, and the
+     result is flagged.
+
+   The real scale always comes from the carriageway width *W* entered by the
+   user. In tests on synthetic perspective roads (with and without edge lines,
+   shadows, parked vehicles, an off-centre camera, a footpath close to asphalt
+   colour), the detected edges were within 7.5 cm of the true edges on a 7 m
+   carriageway. Straight roads only.
 2. **Capacity.** `C0 = DSV / 0.70` (DSV is the LOS C volume, V/C = 0.70).
    For one direction of a divided road, DSV is halved.
 3. **Lane-by-lane geometric capacity.** `C_geom = Σ (C0/n) × u_i × p_i`
@@ -63,7 +84,7 @@ no longer used for bituminous potholes.
 
 | # | Earlier assumption | Now |
 |---|---|---|
-| 1 | Photo edges = carriageway edges | 4-corner homography; fallback flagged |
+| 1 | Photo edges = carriageway edges | Automatic road-edge detection or 4 marked corners → homography; fallback flagged |
 | 2 | No perspective | Homography |
 | 3 | Box height as length | Removed; length from homography when the near–far distance is given |
 | 4 | Fixed downscale / imgsz | Keeps ≥ 2×imgsz; `ROAD_IMGSZ` configurable |

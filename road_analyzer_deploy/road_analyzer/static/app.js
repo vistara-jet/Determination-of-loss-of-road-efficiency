@@ -237,7 +237,7 @@
     calibPts = [];
     if (calibInput) calibInput.value = "";
     if (calibStatus) calibStatus.textContent =
-      "Not calibrated: the photo edges will be taken as the carriageway edges.";
+      "Not marked: road edges will be detected automatically.";
   }
 
   function loadCalibSource(file) {
@@ -304,6 +304,30 @@
     calibPts.push([Math.round(x), Math.round(y)]);
     drawCalib();
   });
+  // Ask the server to find the road edges, then show them for review.
+  const calibAuto = document.getElementById("calib-auto-btn");
+  if (calibAuto) calibAuto.addEventListener("click", async () => {
+    calibHelp.textContent = "Detecting road edges…";
+    try {
+      const c = document.createElement("canvas");
+      c.width = calibW; c.height = calibH;
+      c.getContext("2d").drawImage(calibSrc, 0, 0, calibW, calibH);
+      const blob = await new Promise((res) => c.toBlob(res, "image/jpeg", 0.92));
+      const fd = new FormData();
+      fd.append("file", blob, "frame.jpg");
+      const r = await fetch("/api/detect-edges", { method: "POST", body: fd });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.detail || "Edge detection failed.");
+      const pts = d.points || d.candidate_points;
+      if (!pts) { calibHelp.textContent = `No road edges found: ${d.reason} Mark the corners by hand.`; return; }
+      calibPts = pts.map((p) => [Math.round(p[0]), Math.round(p[1])]);
+      drawCalib();
+      calibHelp.textContent = d.points
+        ? `Edges detected (${d.method}, confidence ${d.confidence}). Check the outline, then use these corners or undo and adjust.`
+        : `Low confidence (${d.confidence}): ${d.reason} Check carefully or mark by hand.`;
+    } catch (e) { calibHelp.textContent = e.message; }
+  });
+
   const calibUndo = document.getElementById("calib-undo-btn");
   if (calibUndo) calibUndo.addEventListener("click", () => { calibPts.pop(); drawCalib(); });
   const calibCancel = document.getElementById("calib-cancel-btn");
@@ -1244,6 +1268,30 @@
       </div>`;
   }
 
+  function geometryViewsHTML(data) {
+    const g = data.geometry || {};
+    const ed = g.edge_detection || {};
+    if (!data.edges_image_url && !data.birdseye_image_url) {
+      if (ed.source === "auto" && ed.reason) {
+        return `<div class="card irc-card"><div class="card-title">Road edges</div>
+          <div class="card-sub">Automatic detection did not find the carriageway edges: ${ed.reason} Mark the 4 corners under "Improve accuracy" for perspective-correct widths.</div></div>`;
+      }
+      return "";
+    }
+    const how = ed.source === "auto"
+      ? `Detected automatically (${ed.method}, confidence ${ed.confidence}). If the yellow lines miss the carriageway, mark the corners by hand.`
+      : "From the 4 corners you marked.";
+    return `
+      <div class="card irc-card">
+        <div class="card-title">Road edges and top-down view</div>
+        <div class="card-sub">${how}</div>
+        <div class="geo-views">
+          ${data.edges_image_url ? `<figure><img src="${data.edges_image_url}" alt="Photo with detected carriageway edges"><figcaption>Carriageway boundary used for measurement</figcaption></figure>` : ""}
+          ${data.birdseye_image_url ? `<figure><img src="${data.birdseye_image_url}" alt="Top-down view of the road with detections"><figcaption>${data.birdseye_note || "Top-down view"}</figcaption></figure>` : ""}
+        </div>
+      </div>`;
+  }
+
   function segmentHTML(seg) {
     if (!seg) return "";
     return `
@@ -1266,6 +1314,7 @@
     resultsRoot.innerHTML =
       heroHTML(data) +
       ircLosHTML(data) +
+      geometryViewsHTML(data) +
       defectAlertBannerHTML(data.per_defect) +
       xodrButtonHTML(data) +
       departmentReportButtonHTML(data) +

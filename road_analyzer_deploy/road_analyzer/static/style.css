@@ -1047,3 +1047,9 @@ canvas { width: 100% !important; }
 .st-entered, .st-trafficflow{ background:var(--surface-2); color:var(--text); }
 .st-assumed{ background:var(--amber-dim); color:var(--text); }
 .depth-small{ color:var(--green); } .depth-medium{ color:var(--yellow); } .depth-large{ color:var(--red); }
+
+.geo-views{ display:grid; grid-template-columns:minmax(0,3fr) minmax(0,2fr); gap:16px; margin-top:12px; align-items:start; }
+@media (max-width:760px){ .geo-views{ grid-template-columns:minmax(0,1fr); } }
+.geo-views figure{ margin:0; }
+.geo-views img{ width:100%; border-radius:8px; border:1px solid var(--line); display:block; }
+.geo-views figcaption{ font-size:12px; color:var(--text-dim); margin-top:6px; }
