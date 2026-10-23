@@ -10,11 +10,11 @@ IRC:106-1990  Guidelines for Capacity of Urban Roads in Plain Areas
               - Table 1: PCU equivalency factors (by each vehicle type's own
                 share of the traffic stream: 5 % and 10 % or more)
               - Table 2: Design Service Volumes (DSV), urban roads
-              - Design service volumes correspond to LOS C, i.e. V/C = 0.70
               - Cl. 5.3: average travel speed at each LOS as a share of
                 free-flow speed
 IRC:106 (2022 draft revision) Guidelines for Capacity of Urban Roads in
               Plain Terrain
+              - Table 5: capacity per lane by road type
               - Eq. 5: lane capacity from operating speed,
                 C_lane = 20.11 * V_os + 210.8   (divided roads)
               - Eq. 6: C = C0 * F_OP * F_BS * F_AC * F_PD
@@ -67,19 +67,28 @@ FRINGE_CONDITION_DESC: Dict[str, str] = {
     "collector":    "Free frontage access, parked vehicles, bus stops, heavy cross traffic",
 }
 
-# Which side-friction effects are ALREADY built into each IRC:106-1990
-# traffic-condition column. Applying a draft-IRC:106 factor on top of a DSV
-# that already includes the same effect would count it twice.
+# Capacity is read from draft IRC:106 (2022) Table 5, which gives a base
+# capacity per lane with no side friction. Side friction is then applied by
+# the Eq. 6 factors, so none of it is built into the base value.
 FRINGE_ALREADY_INCLUDES: Dict[str, set] = {
-    "arterial":     set(),
-    "sub_arterial": {"access", "bus_stop"},
-    "collector":    {"access", "bus_stop", "parking"},
+    "arterial": set(), "sub_arterial": set(), "collector": set(),
 }
 
-# IRC:106 design service volumes are set at LOS C. The upper V/C limit of
-# LOS C is 0.70, so:
-#   Estimated Capacity: Capacity = DSV / 0.70
-VC_AT_DESIGN_SERVICE_VOLUME = 0.70
+# Draft IRC:106 (2022) Table 5 -- capacity per lane (PCU/h/lane):
+#   two-lane undivided 1100 · four-lane undivided 1250 · divided 1700.
+# Road types the table does not list take the nearest listed type:
+# one-way carriageways (no opposing flow) as divided, six-lane undivided
+# as four-lane undivided.
+IRC106_2022_LANE_CAPACITY: Dict[str, Tuple[float, str]] = {
+    "2lane_twoway":    (1100.0, "two-lane undivided"),
+    "4lane_undivided": (1250.0, "four-lane undivided"),
+    "6lane_undivided": (1250.0, "four-lane undivided (nearest listed)"),
+    "4lane_divided":   (1700.0, "divided"),
+    "6lane_divided":   (1700.0, "divided"),
+    "8lane_divided":   (1700.0, "divided"),
+    "2lane_oneway":    (1700.0, "divided (one-way, nearest listed)"),
+    "3lane_oneway":    (1700.0, "divided (one-way, nearest listed)"),
+}
 
 
 def is_divided_like(carriageway_key: str) -> bool:
@@ -371,8 +380,8 @@ def compute_capacity(defects: List[dict], p: dict) -> dict:
 
     Capacity model
     --------------
-      C0      = DSV_scope / 0.70                         (IRC:106, LOS C)
-      C_lane  = C0 / n                                   (n lanes in photo)
+      C_lane  = capacity per lane, draft IRC:106 (2022) Table 5
+      C0      = C_lane * n                               (n lanes in photo)
       u_i     = usable free width in lane i / lane width (gaps < g_min unusable)
       p_i     = worst pothole factor among potholes touching lane i
       C_geom  = sum_i C_lane * u_i * p_i

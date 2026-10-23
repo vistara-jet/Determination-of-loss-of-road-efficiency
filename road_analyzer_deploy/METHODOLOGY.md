@@ -9,10 +9,10 @@ capacity, V/C and Level-of-Service result. Every result JSON also carries an
 
 | Code | Used for |
 |---|---|
-| IRC:106-1990, Table 2 | Design Service Volume (DSV), urban roads, LOS C |
+| IRC:106-1990, Table 2 | Design Service Volume (DSV), urban roads: the design demand |
 | IRC:106-1990, Table 1 | PCU factors by each vehicle type's own share (5 % / ≥10 %) |
 | IRC:106-1990, cl. 5.3 | Average travel speed at each LOS as a share of free-flow speed |
-| IRC:106 (2022 **draft** revision) Eq. 5, Eq. 6, Tables 3, 8, 9, 12–16 | Lane capacity from operating speed; side-friction factors; LOS by V/C; operating speeds |
+| IRC:106 (2022 **draft** revision) Table 5, Eq. 5, Eq. 6, Tables 3, 8, 9, 12–16 | Lane capacity from operating speed; side-friction factors; LOS by V/C; operating speeds |
 | IRC:82-2015, cl. 7.5.3, Table 5.3 | Pothole classes, repair method, urban condition rating |
 | IRC:81-1997 / IRC:115-2014 | Structural evaluation when pothole condition is "Poor" |
 | IRC:SP:55-2014, IRC:67-2012, IRC:35 | Work-zone management, signs, markings |
@@ -49,13 +49,19 @@ no longer used for bituminous potholes.
    shadows, parked vehicles, an off-centre camera, a footpath close to asphalt
    colour), the detected edges were within 7.5 cm of the true edges on a 7 m
    carriageway. Straight roads only.
-2. **Estimated Capacity.**
+2. **Capacity.** Read from draft IRC:106 (2022) Table 5, capacity per lane:
 
-   ```
-   Capacity = DSV / 0.70
-   ```
-   This capacity is written C0 in the formulas below.
-   For one direction of a divided road, DSV is halved.
+   | Road type (our selection) | Table 5 row | PCU/h per lane |
+   | --- | --- | --- |
+   | 2-lane two-way | Two-lane undivided | 1,100 |
+   | 4-lane undivided, 6-lane undivided | Four-lane undivided | 1,250 |
+   | 4/6/8-lane divided, 2/3-lane one-way | Divided | 1,700 |
+
+   Capacity C0 = lanes in the photo × the per-lane value. Six-lane undivided
+   and one-way roads are not listed in Table 5 and take the nearest listed
+   row. Because Table 5 is a base capacity with no side friction, every
+   side-friction factor (F_OP, F_BS, F_AC, F_PD) applies on all fringe types.
+
 3. **Lane-by-lane geometric capacity.** `C_geom = Σ (C0/n) × u_i × p_i`
    - `u_i`: usable free width in lane *i* ÷ lane width. Free gaps narrower than
      `min_usable_gap_m` (default 1.0 m) count as unusable.
@@ -64,10 +70,7 @@ no longer used for bituminous potholes.
    (draft IRC:106 Eq. 5). V_pothole is measured, or defaults to 90/80/60 % of
    V_normal for IRC:82 small/medium/large.
 5. **Side friction.** `C_eff = C_geom × F_OP × F_BS × F_AC × F_PD`
-   (draft IRC:106 Eq. 6, Tables 12–16). A factor is skipped when the chosen
-   IRC:106-1990 fringe column already includes that effect:
-   - sub-arterial already includes bus stops and access points;
-   - collector already includes those plus parking.
+   (draft IRC:106 Eq. 6, Tables 12–16).
 6. **V/C and LOS.** `V/C = demand / C_eff`. Demand is the observed volume, or
    the DSV if none is entered. LOS comes from draft IRC:106 Table 8
    (undivided) or Table 9 (divided / one-way).
@@ -99,7 +102,7 @@ no longer used for bituminous potholes.
 | 8 | Vendor/cart always vetoed | Keeps the more confident label |
 | 9 | Vehicles = moving | Kept and flagged: a single photo cannot show motion |
 | 10 | tree_on_road listed | Classes read from the model |
-| 11 | DSV = capacity | Estimated Capacity = DSV / 0.70; V/C and LOS reported |
+| 11 | DSV = capacity | Capacity from IRC:106 (2022) Table 5; DSV used as design demand; V/C and LOS reported |
 | 12 | Linear width factor | Lane-by-lane usable width; unusable slivers |
 | 13 | Full-length blockage | Bottleneck principle; parking by occupancy |
 | 14 | Multiplicative factors | Draft IRC:106 Eq. 6 |

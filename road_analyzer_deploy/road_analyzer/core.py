@@ -15,8 +15,8 @@ Pipeline for one photo
    Objects that fall outside the carriageway are ignored.
 3. Potholes: IRC:82-2015 class from measured width (and depth if entered);
    capacity factor from the speed drop via draft IRC:106 Eq. 5.
-4. Capacity: Estimated Capacity = DSV / 0.70; then lane-by-lane usable
-   width and pothole factors;
+4. Capacity: per-lane capacity from IRC:106 (2022 draft) Table 5; then
+   lane-by-lane usable width and pothole factors;
    then draft IRC:106 Eq. 6 factors for parking, bus stops, access points
    and pedestrians (only those NOT already included in the chosen
    IRC:106-1990 traffic-condition column).
@@ -250,7 +250,9 @@ def prepare_params(cfg: dict, occupancy_override: Optional[float] = None) -> dic
         "carriageway_key": key, "fringe": fringe, "width_m": W,
         "lanes_in_photo": lanes_in_photo, "photo_covers": covers,
         "dsv_total": dsv_total, "dsv_scope": dsv_scope,
-        "capacity_c0": dsv_scope / irc.VC_AT_DESIGN_SERVICE_VOLUME,
+        "capacity_c0": irc.IRC106_2022_LANE_CAPACITY[key][0] * lanes_in_photo,
+        "lane_capacity": irc.IRC106_2022_LANE_CAPACITY[key][0],
+        "capacity_row": irc.IRC106_2022_LANE_CAPACITY[key][1],
         "operating_speed_kmh": float(cfg.get("operating_speed_kmh") or OPERATING_SPEED_KMH[fringe]),
         "operating_speed_measured": bool(cfg.get("operating_speed_kmh")),
         "demand_pcu_hr": float(cfg.get("observed_volume_pcu_hr") or dsv_scope),
@@ -547,9 +549,7 @@ class RoadAnalyzer:
                 } for d in mine],
             }
             if cls == "illegal_parking":
-                entry["capacity_method"] = ("Included in IRC:106 'collector' DSV (no extra factor)"
-                                            if "parking" in p["fringe_includes"]
-                                            else "Draft IRC:106 Table 12 on-street parking factor F_OP")
+                entry["capacity_method"] = "Draft IRC:106 Table 12 on-street parking factor F_OP"
                 entry["factor_applied"] = full["f_op"]
                 entry["occupancy_pct"] = p["parking_occupancy_pct"]
             if cls == "pothole":
@@ -594,11 +594,14 @@ class RoadAnalyzer:
                 "carriageway_key": p["carriageway_key"],
                 "fringe_condition": p["fringe"],
                 "fringe_desc": FRINGE_CONDITION_DESC.get(p["fringe"], ""),
-                "source": "IRC:106-1990 Table 2 DSV; Estimated Capacity = DSV / 0.70",
+                "source": "IRC:106-1990 Table 2 DSV",
             },
             "capacity_basis": {
-                "label": "Estimated Capacity",
-                "formula": "Capacity = DSV / 0.70",
+                "label": "Capacity",
+                "source": "IRC:106 (2022 draft) Table 5",
+                "road_type_row": p["capacity_row"],
+                "lane_capacity_pcu_hr": p["lane_capacity"],
+                "lanes": p["lanes_in_photo"],
                 "value_pcu_hr": round(C0, 1),
             },
             "free_flow_speed_kmh": p["operating_speed_kmh"],
@@ -634,7 +637,7 @@ class RoadAnalyzer:
                                           "F_AC": full["f_ac"], "F_PD": full["f_pd"]},
                 "lanes": full["lanes"],
                 "avg_pcu_per_vehicle": round(avg_pcu, 3),
-                "formula": (f"Estimated Capacity = DSV / 0.70 = {p['dsv_scope']:.0f} / 0.70 = {C0:.0f} PCU/h; "
+                "formula": (f"Capacity (IRC:106 Table 5) = {C0:.0f} PCU/h; "
                             f"C_geom = sum(C_lane x u_i x p_i) = {full['c_geom']:.0f}; "
                             f"C_eff = C_geom x {factors_str} = {c_eff:.0f} PCU/h"),
             },
@@ -943,9 +946,8 @@ def inputs_and_sources(result: dict, p: dict, ex: dict, cfg: dict, thr_calibrate
             ("Homography from auto-detected road edges" if (ex.get("edge_detection") or {}).get("source") == "auto"
              else "Homography from 4 marked corners") if ex["calibrated"] else "Photo edges = carriageway edges",
             "measured" if ex["calibrated"] else "default"),
-        row("Estimated Capacity",
-            f"Capacity = DSV / 0.70 = {p['dsv_scope']:.0f} / 0.70 = {p['capacity_c0']:.0f} PCU/h",
-            "DSV from IRC:106-1990 Table 2", "IRC"),
+        row("Capacity", f"{p['capacity_c0']:.0f} PCU/h ({p['lanes_in_photo']} lanes x {p['lane_capacity']:.0f} PCU/h)",
+            f"IRC:106 (2022 draft) Table 5, {p['capacity_row']}", "IRC"),
         row("Photographed stream", "one direction of a divided road" if p["photo_covers"] == "one_direction"
             else "whole carriageway",
             "Divided-road DSV taken as two-way total and halved" if p["photo_covers"] == "one_direction" else "-",

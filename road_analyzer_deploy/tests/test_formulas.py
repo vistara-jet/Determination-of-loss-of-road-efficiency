@@ -49,15 +49,16 @@ for k, v in r["per_defect"].items():
     print(k, v["severity"], v["capacity_loss_pct"], "LOS if removed", v["los_if_removed"], v.get("capacity_method",""))
 print("warnings", r["warnings"])
 # hand check: lanes 3.5 m; blocked [0,2.1875]; lane1 usable (3.5-2.1875)/3.5 = 0.375 (gap 2.1875..14 is >=1 m)
-C0 = 3600/0.7; cl = C0/4; fp = 1015.2/1216.3
+cl = 1700.0; C0 = cl*4; fp = 1015.2/1216.3   # IRC:106 (2022) Table 5, divided
 # pothole 6.125-7.875 touches lane 2 (3.5-7.0) and lane 3 (7.0-10.5)
 hand = (cl*0.375 + cl*fp + cl*fp + cl) * 0.65
 assert abs(r["reduced_capacity_pcu_hr"] - round(hand,1)) < 0.2, (r["reduced_capacity_pcu_hr"], hand)
 assert r["traffic_regime"]["congested_speed_kmh"] < r["traffic_regime"]["ideal_speed_kmh"]
-# collector: parking already included -> F_OP 1
+# capacity from Table 5 has no side friction built in -> parking factor applies on every fringe
 cfg2 = dict(cfg, carriageway_key="4lane_undivided", fringe_condition="collector")
 r2 = core.RoadAnalyzer.assemble(dummy, ex, cfg2)
-assert r2["capacity_calculation"]["side_friction_factors"]["F_OP"] == 1.0
+assert r2["capacity_calculation"]["side_friction_factors"]["F_OP"] == 0.65
+assert r2["original_capacity_pcu_hr"] == 5000.0   # 4 x 1250, four-lane undivided
 # no defects -> zero loss, LOS C
 ex0 = dict(ex, defects=[], has_parking=False)
 r0 = core.RoadAnalyzer.assemble(dummy, ex0, {**cfg, "parking_occupancy_pct": None})
@@ -65,6 +66,7 @@ assert r0["capacity_loss_pct"] == 0.0 and r0["level_of_service"] == "C", r0["lev
 # one-direction scope
 r3 = core.RoadAnalyzer.assemble(dummy, ex0, {**cfg, "total_width_m": 7, "photo_covers": "one_direction", "parking_occupancy_pct": None})
 assert r3["design_service_volume_pcu_hr"] == 1800 and r3["capacity_calculation"]["lanes_in_photo"] == 2
+assert r3["original_capacity_pcu_hr"] == 3400.0   # 2 x 1700, one direction
 # sliver: vendor leaving 0.5 m at left edge
 ex4 = dict(ex0, defects=[det("street_vendor", 0.5, 2.0)])
 r4 = core.RoadAnalyzer.assemble(dummy, ex4, {**cfg, "parking_occupancy_pct": None})

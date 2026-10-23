@@ -551,6 +551,16 @@
     return 50; // fallback
   }
 
+  // IRC:106 (2022 draft) Table 5 capacity per lane (PCU/h/lane)
+  const LANE_CAPACITY = { "2lane_twoway": 1100, "4lane_undivided": 1250, "6lane_undivided": 1250,
+    "4lane_divided": 1700, "6lane_divided": 1700, "8lane_divided": 1700, "2lane_oneway": 1700, "3lane_oneway": 1700 };
+
+  ["num_lanes", "photo_covers"].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener("input", () => updateDsvPreview());
+    if (el) el.addEventListener("change", () => updateDsvPreview());
+  });
+
   function updateDsvPreview() {
     if (!configData) return;
     const key    = carriagewaySel ? carriagewaySel.value : "";
@@ -559,13 +569,17 @@
     const opt    = (configData.carriageway_options || []).find((o) => o.key === key);
     if (opt && opt.dsv_values && opt.dsv_values[fringe] !== undefined) {
       const dsv      = opt.dsv_values[fringe];
-      const c0       = Math.round(dsv / 0.70);
+      const lanesEl  = document.getElementById("num_lanes");
+      const coversEl = document.getElementById("photo_covers");
+      let lanes      = Math.max(1, parseInt(lanesEl && lanesEl.value, 10) || 1);
+      if (coversEl && coversEl.value === "one_direction" && key.endsWith("_divided")) lanes = Math.max(1, Math.floor(lanes / 2));
+      const c0       = (LANE_CAPACITY[key] || 0) * lanes;
       const freeSpd  = getFreeFlowSpeed();
       dsvValueEl.textContent = dsv.toLocaleString("en-IN");
       const noteEl = document.getElementById("dsv-note");
       if (noteEl) {
         noteEl.textContent =
-          `Estimated Capacity = DSV / 0.70 = ${c0.toLocaleString("en-IN")} PCU/hr · ` +
+          `Capacity ${c0.toLocaleString("en-IN")} PCU/hr (IRC:106 Table 5, ${lanes} lanes) · ` +
           `operating speed ${freeSpd} km/h (IRC:106 2022 draft, Table 3)`;
       }
       dsvPreview.style.display = "";
@@ -807,7 +821,7 @@
           <div class="big-number">${fmt(data.reduced_capacity_pcu_hr, 0)} <small>PCU/hr usable capacity</small></div>
           <div class="compare">
             <div class="item">
-              <div class="label">Estimated Capacity</div>
+              <div class="label">Capacity (IRC:106 Table 5)</div>
               <div class="val orig">${fmt(data.original_capacity_pcu_hr, 0)} PCU/hr</div>
               ${data.original_capacity_vehicles_hr ? `<div class="val-sub">${fmt(data.original_capacity_vehicles_hr, 0)} vehicles/hr</div>` : ""}
             </div>
@@ -1231,7 +1245,7 @@
         </div>
         <table class="stretch-table irc-steps">
           <tr><td>Design Service Volume (IRC:106-1990 Table 2, LOS C)</td><td>${fmt(data.design_service_volume_pcu_hr,0)} PCU/h</td></tr>
-          <tr><td>Estimated Capacity: Capacity = DSV / 0.70</td><td>${fmt(data.original_capacity_pcu_hr,0)} PCU/h</td></tr>
+          <tr><td>Capacity, IRC:106 (2022 draft) Table 5 · ${(data.capacity_basis || {}).lanes} lanes × ${fmt((data.capacity_basis || {}).lane_capacity_pcu_hr,0)} PCU/h per lane</td><td>${fmt(data.original_capacity_pcu_hr,0)} PCU/h</td></tr>
           <tr><td>Geometric capacity Σ C<sub>lane</sub> × u<sub>i</sub> × p<sub>i</sub></td><td>${fmt(calc.geometric_capacity_pcu_hr,0)} PCU/h</td></tr>
           <tr><td>Side friction F<sub>OP</sub> × F<sub>BS</sub> × F<sub>AC</sub> × F<sub>PD</sub> (draft IRC:106 Eq. 6)</td><td>${f.F_OP} × ${f.F_BS} × ${f.F_AC} × ${f.F_PD}</td></tr>
           <tr><td><b>Effective capacity C<sub>eff</sub></b></td><td><b>${fmt(data.reduced_capacity_pcu_hr,0)} PCU/h</b></td></tr>
