@@ -565,7 +565,7 @@
       const noteEl = document.getElementById("dsv-note");
       if (noteEl) {
         noteEl.textContent =
-          `Estimated Capacity (LOS C Assumption) = DSV / 0.70 = ${c0.toLocaleString("en-IN")} PCU/hr · ` +
+          `Estimated Capacity = DSV / 0.70 = ${c0.toLocaleString("en-IN")} PCU/hr · ` +
           `operating speed ${freeSpd} km/h (IRC:106 2022 draft, Table 3)`;
       }
       dsvPreview.style.display = "";
@@ -807,7 +807,7 @@
           <div class="big-number">${fmt(data.reduced_capacity_pcu_hr, 0)} <small>PCU/hr usable capacity</small></div>
           <div class="compare">
             <div class="item">
-              <div class="label">Estimated Capacity (LOS C Assumption)</div>
+              <div class="label">Estimated Capacity</div>
               <div class="val orig">${fmt(data.original_capacity_pcu_hr, 0)} PCU/hr</div>
               ${data.original_capacity_vehicles_hr ? `<div class="val-sub">${fmt(data.original_capacity_vehicles_hr, 0)} vehicles/hr</div>` : ""}
             </div>
@@ -1049,29 +1049,6 @@
     }).join("")}</div>`;
   }
 
-  function xodrButtonHTML(data) {
-    if (!data.roadrunner_xodr_available || !data.job_id) return "";
-    return `
-      <div class="action-bar">
-        <div class="action-bar-info">
-          <span class="action-bar-icon">🛣️</span>
-          <div>
-            <div class="action-bar-title">Digital Twin Bundle (.zip)</div>
-            <div class="action-bar-sub">Everything for the 3D RoadRunner simulation in one download: the ideal
-            road, the non-ideal (defect) road, the capacity numbers, and the MATLAB scripts + one-click launchers.
-            Extract this straight into your Downloads folder, then double-click
-            <code>run_ideal_digital_twin.bat</code> and <code>run_nonideal_digital_twin.bat</code> to see each
-            simulation — open both to compare side by side.</div>
-          </div>
-        </div>
-        <a class="action-dl-btn" href="/api/jobs/${encodeURIComponent(data.job_id)}/bundle.zip"
-           download>
-          ↓ Download Everything (.zip)
-        </a>
-      </div>`;
-  }
-
-
   // Results from every image analysed THIS BROWSER SESSION — used only
   // to build the multi-photo corridor export below. Not sent anywhere
   // until the user explicitly clicks the corridor download button.
@@ -1240,7 +1217,7 @@
     const plan = (data.restoration_plan || []).map((s) => `
       <li>Remove <b>${titleCase(s.remove)}</b> → ${fmt(s.capacity_after_pcu_hr,0)} PCU/h, V/C ${s.vc_after}, LOS ${losBadge(s.los_after)}</li>`).join("");
     const warns = (data.warnings || []).map((w) => `<li>${w}</li>`).join("");
-    const assum = (data.assumptions || []).map((a) => `
+    const inputsRows = (data.inputs_and_sources || []).map((a) => `
       <tr><td>${a.item}</td><td>${typeof a.value === "object" && a.value !== null ? JSON.stringify(a.value) : (a.value ?? "-")}</td>
           <td>${a.basis}</td><td><span class="st st-${String(a.status).split(" ")[0].replace(/[^a-z]/gi, "")}">${a.status}</span></td></tr>`).join("");
     return `
@@ -1254,7 +1231,7 @@
         </div>
         <table class="stretch-table irc-steps">
           <tr><td>Design Service Volume (IRC:106-1990 Table 2, LOS C)</td><td>${fmt(data.design_service_volume_pcu_hr,0)} PCU/h</td></tr>
-          <tr><td>Estimated Capacity (LOS C Assumption): Capacity = DSV / 0.70<div class="cap-assume">Assumption: DSV corresponds to LOS C operating conditions (V/C = 0.70)</div></td><td>${fmt(data.original_capacity_pcu_hr,0)} PCU/h</td></tr>
+          <tr><td>Estimated Capacity: Capacity = DSV / 0.70</td><td>${fmt(data.original_capacity_pcu_hr,0)} PCU/h</td></tr>
           <tr><td>Geometric capacity Σ C<sub>lane</sub> × u<sub>i</sub> × p<sub>i</sub></td><td>${fmt(calc.geometric_capacity_pcu_hr,0)} PCU/h</td></tr>
           <tr><td>Side friction F<sub>OP</sub> × F<sub>BS</sub> × F<sub>AC</sub> × F<sub>PD</sub> (draft IRC:106 Eq. 6)</td><td>${f.F_OP} × ${f.F_BS} × ${f.F_AC} × ${f.F_PD}</td></tr>
           <tr><td><b>Effective capacity C<sub>eff</sub></b></td><td><b>${fmt(data.reduced_capacity_pcu_hr,0)} PCU/h</b></td></tr>
@@ -1263,8 +1240,8 @@
         ${lanes ? `<table class="stretch-table lane-table"><thead><tr><th>Lane</th><th>Position</th><th>Usable</th><th>Pothole factor</th><th>PCU/h</th></tr></thead><tbody>${lanes}</tbody></table>` : ""}
         ${plan ? `<div class="irc-sub">Smallest set of removals that restores design LOS C</div><ol class="plan-list">${plan}</ol>` : ""}
         ${warns ? `<div class="irc-sub">Data-quality notes</div><ul class="warn-list">${warns}</ul>` : ""}
-        ${assum ? `<details class="assum"><summary>Assumptions register: what was measured, entered, IRC-sourced or assumed</summary>
-          <table class="stretch-table"><thead><tr><th>Item</th><th>Value</th><th>Basis</th><th>Status</th></tr></thead><tbody>${assum}</tbody></table></details>` : ""}
+        ${inputsRows ? `<details class="inputs-src"><summary>Inputs and sources: what was measured, entered, taken from IRC or set by default</summary>
+          <table class="stretch-table"><thead><tr><th>Item</th><th>Value</th><th>Basis</th><th>Source</th></tr></thead><tbody>${inputsRows}</tbody></table></details>` : ""}
       </div>`;
   }
 
@@ -1316,7 +1293,6 @@
       ircLosHTML(data) +
       geometryViewsHTML(data) +
       defectAlertBannerHTML(data.per_defect) +
-      xodrButtonHTML(data) +
       departmentReportButtonHTML(data) +
       corridorButtonHTML() +
       roadbarHTML(data.road_config || {}, data.per_defect || {}) +

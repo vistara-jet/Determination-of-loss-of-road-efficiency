@@ -26,9 +26,9 @@ IRC:82-2015   Code of Practice for Maintenance of Bituminous Roads
               - Cl. 7.5.3.4: pothole classes (small / medium / large)
               - Table 5.3: urban road condition rating from pothole area %
 
-Anything that is NOT from these sources is listed in ASSUMPTION_DEFAULTS
-and reported back in every result under "assumptions", so the user can see
-exactly what was measured, what was entered, and what was assumed.
+Anything that is NOT from these sources is a stated default, reported in
+every result under "inputs_and_sources", so the user can see exactly what
+was measured, what was entered, and what was set by default.
 """
 
 from __future__ import annotations
@@ -78,8 +78,7 @@ FRINGE_ALREADY_INCLUDES: Dict[str, set] = {
 
 # IRC:106 design service volumes are set at LOS C. The upper V/C limit of
 # LOS C is 0.70, so:
-#   Estimated Capacity (LOS C Assumption): Capacity = DSV / 0.70
-#   Assumption: DSV corresponds to LOS C operating conditions (V/C = 0.70)
+#   Estimated Capacity: Capacity = DSV / 0.70
 VC_AT_DESIGN_SERVICE_VOLUME = 0.70
 
 
@@ -312,7 +311,7 @@ def urban_pothole_rating(area_pct: Optional[float]) -> Optional[str]:
 
 # Speed at a pothole as a share of the normal operating speed. NOT from
 # IRC -- used only when no measured speed is supplied, and reported as an
-# assumption in every result.
+# default in every result.
 DEFAULT_POTHOLE_SPEED_RATIO: Dict[str, float] = {"small": 0.90, "medium": 0.80, "large": 0.60}
 
 

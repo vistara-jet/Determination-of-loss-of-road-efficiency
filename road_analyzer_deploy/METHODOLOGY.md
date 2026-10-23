@@ -2,8 +2,8 @@
 
 This file documents how one photo (or a batch / video of a stretch) becomes a
 capacity, V/C and Level-of-Service result. Every result JSON also carries an
-`assumptions` list saying, for that run, what was **measured**, **entered**,
-**IRC-sourced** or **assumed**.
+`inputs_and_sources` list saying, for that run, what was **measured**,
+**entered**, **IRC-sourced** or set by **default**.
 
 ## Standards used
 
@@ -49,12 +49,11 @@ no longer used for bituminous potholes.
    shadows, parked vehicles, an off-centre camera, a footpath close to asphalt
    colour), the detected edges were within 7.5 cm of the true edges on a 7 m
    carriageway. Straight roads only.
-2. **Estimated Capacity (LOS C Assumption).**
+2. **Estimated Capacity.**
 
    ```
    Capacity = DSV / 0.70
    ```
-   Assumption: DSV corresponds to LOS C operating conditions (V/C = 0.70).
    This capacity is written C0 in the formulas below.
    For one direction of a divided road, DSV is halved.
 3. **Lane-by-lane geometric capacity.** `C_geom = Σ (C0/n) × u_i × p_i`
@@ -62,7 +61,7 @@ no longer used for bituminous potholes.
      `min_usable_gap_m` (default 1.0 m) count as unusable.
    - `p_i`: pothole factor of the worst pothole touching lane *i*.
 4. **Pothole factor.** `p = (20.11·V_pothole + 210.8) / (20.11·V_normal + 210.8)`
-   (draft IRC:106 Eq. 5). V_pothole is measured, or assumed to be 90/80/60 % of
+   (draft IRC:106 Eq. 5). V_pothole is measured, or defaults to 90/80/60 % of
    V_normal for IRC:82 small/medium/large.
 5. **Side friction.** `C_eff = C_geom × F_OP × F_BS × F_AC × F_PD`
    (draft IRC:106 Eq. 6, Tables 12–16). A factor is skipped when the chosen
@@ -86,9 +85,9 @@ no longer used for bituminous potholes.
 10. **Segment (batch/video).** Segment capacity is the minimum over all samples
     (bottleneck). Parking occupancy is the share of samples showing parking.
 
-## Status of the 38 earlier assumptions
+## Status of the 38 earlier items
 
-| # | Earlier assumption | Now |
+| # | Original code | Now |
 |---|---|---|
 | 1 | Photo edges = carriageway edges | Automatic road-edge detection or 4 marked corners → homography; fallback flagged |
 | 2 | No perspective | Homography |
@@ -100,7 +99,7 @@ no longer used for bituminous potholes.
 | 8 | Vendor/cart always vetoed | Keeps the more confident label |
 | 9 | Vehicles = moving | Kept and flagged: a single photo cannot show motion |
 | 10 | tree_on_road listed | Classes read from the model |
-| 11 | DSV = capacity | Estimated Capacity (LOS C Assumption) = DSV / 0.70; V/C and LOS reported |
+| 11 | DSV = capacity | Estimated Capacity = DSV / 0.70; V/C and LOS reported |
 | 12 | Linear width factor | Lane-by-lane usable width; unusable slivers |
 | 13 | Full-length blockage | Bottleneck principle; parking by occupancy |
 | 14 | Multiplicative factors | Draft IRC:106 Eq. 6 |
@@ -129,7 +128,7 @@ no longer used for bituminous potholes.
 | 37 | Time-based sampling, box IoU tracking | Distance-based sampling option; tracking on lateral metres |
 | 38 | Batch worst/mean only | Bottleneck segment capacity, LOS, measured parking occupancy |
 
-## Assumptions that remain (always listed in the result)
+## Default values (always listed in the result)
 
 - **Narrowest usable gap:** 1.0 m (adjustable).
 - **Speed at potholes:** 90/80/60 % of the operating speed when not measured.

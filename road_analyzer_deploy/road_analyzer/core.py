@@ -15,14 +15,13 @@ Pipeline for one photo
    Objects that fall outside the carriageway are ignored.
 3. Potholes: IRC:82-2015 class from measured width (and depth if entered);
    capacity factor from the speed drop via draft IRC:106 Eq. 5.
-4. Capacity: Estimated Capacity (LOS C Assumption) = DSV / 0.70, assuming
-   the DSV corresponds to LOS C operating conditions (V/C = 0.70); then
-   lane-by-lane usable width and pothole factors;
+4. Capacity: Estimated Capacity = DSV / 0.70; then lane-by-lane usable
+   width and pothole factors;
    then draft IRC:106 Eq. 6 factors for parking, bus stops, access points
    and pedestrians (only those NOT already included in the chosen
    IRC:106-1990 traffic-condition column).
 5. V/C of the design demand (or observed volume), LOS, expected speed,
-   per-defect impact ("LOS if removed"), and an assumptions register.
+   per-defect impact ("LOS if removed"), and a list of inputs and sources.
 """
 
 from __future__ import annotations
@@ -169,7 +168,7 @@ class RoadGeometry:
     position is only reported when calib_length_m (the real distance
     between the near and far lines) is given.
 
-    Uncalibrated: the photo width is assumed to span the carriageway with
+    Uncalibrated: the photo width is taken to span the carriageway with
     no perspective (flagged in the result)."""
 
     def __init__(self, cfg: dict, img_w: int, img_h: int, scale: float):
@@ -569,7 +568,7 @@ class RoadAnalyzer:
                     "pothole_area_pct": area_pct,
                     "irc82_condition_rating": irc.urban_pothole_rating(area_pct),
                     "penalty_applied": round(min(d["f_p"] for d in mine), 3),
-                    "speed_source": "measured" if v_meas else "assumed (enter measured speed)",
+                    "speed_source": "measured" if v_meas else "default (enter measured speed)",
                     "scored_count": len(mine), "unscored_count": 0,
                 }
             per_defect[cls] = entry
@@ -595,12 +594,11 @@ class RoadAnalyzer:
                 "carriageway_key": p["carriageway_key"],
                 "fringe_condition": p["fringe"],
                 "fringe_desc": FRINGE_CONDITION_DESC.get(p["fringe"], ""),
-                "source": "IRC:106-1990 Table 2 DSV; Estimated Capacity (LOS C Assumption) = DSV / 0.70",
+                "source": "IRC:106-1990 Table 2 DSV; Estimated Capacity = DSV / 0.70",
             },
             "capacity_basis": {
-                "label": "Estimated Capacity (LOS C Assumption)",
+                "label": "Estimated Capacity",
                 "formula": "Capacity = DSV / 0.70",
-                "assumption": "DSV corresponds to LOS C operating conditions (V/C = 0.70)",
                 "value_pcu_hr": round(C0, 1),
             },
             "free_flow_speed_kmh": p["operating_speed_kmh"],
@@ -609,7 +607,7 @@ class RoadAnalyzer:
                 "regime": "composition",
                 "desc": TRAFFIC_REGIME_DESC["composition"],
                 "composition": {k: round(v, 3) for k, v in p["composition"].items()},
-                "composition_source": "entered" if p["composition_entered"] else "default (assumed)",
+                "composition_source": "entered" if p["composition_entered"] else "default",
                 "avg_pcu_per_vehicle": round(avg_pcu, 3),
                 "pcu_factors": p["pcu_per_type"],
                 "base_vehicles_per_hr": veh(C0),
@@ -636,7 +634,7 @@ class RoadAnalyzer:
                                           "F_AC": full["f_ac"], "F_PD": full["f_pd"]},
                 "lanes": full["lanes"],
                 "avg_pcu_per_vehicle": round(avg_pcu, 3),
-                "formula": (f"Estimated Capacity (LOS C Assumption) = DSV / 0.70 = {p['dsv_scope']:.0f} / 0.70 = {C0:.0f} PCU/h; "
+                "formula": (f"Estimated Capacity = DSV / 0.70 = {p['dsv_scope']:.0f} / 0.70 = {C0:.0f} PCU/h; "
                             f"C_geom = sum(C_lane x u_i x p_i) = {full['c_geom']:.0f}; "
                             f"C_eff = C_geom x {factors_str} = {c_eff:.0f} PCU/h"),
             },
@@ -672,7 +670,7 @@ class RoadAnalyzer:
                 "conf": round(d["conf"], 3)} for d in defects],
             "warnings": warnings,
         }
-        result["assumptions"] = assumption_register(result, p, ex, road_config, self.thresholds_calibrated)
+        result["inputs_and_sources"] = inputs_and_sources(result, p, ex, road_config, self.thresholds_calibrated)
         return result
 
     def _warnings(self, ex, p, full, cfg) -> List[str]:
@@ -683,13 +681,13 @@ class RoadAnalyzer:
                      "Check the edge overlay; if the lines miss the carriageway, mark the corners by hand.")
         if not ex["calibrated"]:
             why = f" Automatic edge detection: {ed['reason']}" if ed.get("source") == "auto" and ed.get("reason") else ""
-            w.append("Photo not calibrated: lateral positions assume the photo edges are the carriageway edges. "
+            w.append("Photo not calibrated: lateral positions take the photo edges as the carriageway edges. "
                      "Mark the 4 carriageway corners for perspective-correct measurement." + why)
         if full["has_parking"] and p["parking_occupancy_pct"] is None and "parking" not in p["fringe_includes"]:
             w.append("Parking detected but its occupancy along the segment is unknown: lowest IRC band (<25 %, F_OP 0.70) used. "
                      "Analyse a batch/video of the stretch or enter the measured occupancy.")
         if full["has_parking"] and p["fringe"] in ("arterial", "sub_arterial"):
-            w.append(f"IRC:106 '{p['fringe']}' conditions assume no standing vehicles; parking is handled by F_OP.")
+            w.append(f"IRC:106 '{p['fringe']}' conditions have no standing vehicles; parking is handled by F_OP.")
         if any(d["cls"] == "pothole" for d in ex["defects"]) and not cfg.get("pothole_speed_kmh"):
             w.append("Pothole speed not measured: default speed reduction by IRC:82 class used for the capacity factor.")
         if full["unusable_slivers_m"] >= 0.05:
@@ -934,9 +932,9 @@ class RoadAnalyzer:
 
 
 # ---------------------------------------------------------------------
-# Assumptions register -- what was measured, entered, IRC-sourced or assumed
+# Inputs and sources -- what was measured, entered, IRC-sourced or set by default
 # ---------------------------------------------------------------------
-def assumption_register(result: dict, p: dict, ex: dict, cfg: dict, thr_calibrated: bool) -> List[dict]:
+def inputs_and_sources(result: dict, p: dict, ex: dict, cfg: dict, thr_calibrated: bool) -> List[dict]:
     def row(item, value, basis, status):
         return {"item": item, "value": value, "basis": basis, "status": status}
 
@@ -944,24 +942,24 @@ def assumption_register(result: dict, p: dict, ex: dict, cfg: dict, thr_calibrat
         row("Carriageway geometry", ex["geometry_method"],
             ("Homography from auto-detected road edges" if (ex.get("edge_detection") or {}).get("source") == "auto"
              else "Homography from 4 marked corners") if ex["calibrated"] else "Photo edges = carriageway edges",
-            "measured" if ex["calibrated"] else "assumed"),
-        row("Estimated Capacity (LOS C Assumption)",
+            "measured" if ex["calibrated"] else "default"),
+        row("Estimated Capacity",
             f"Capacity = DSV / 0.70 = {p['dsv_scope']:.0f} / 0.70 = {p['capacity_c0']:.0f} PCU/h",
-            "DSV (IRC:106-1990 Table 2) corresponds to LOS C operating conditions (V/C = 0.70)", "assumed"),
+            "DSV from IRC:106-1990 Table 2", "IRC"),
         row("Photographed stream", "one direction of a divided road" if p["photo_covers"] == "one_direction"
             else "whole carriageway",
             "Divided-road DSV taken as two-way total and halved" if p["photo_covers"] == "one_direction" else "-",
             "entered"),
         row("Usable gap", f">= {p['min_usable_gap_m']:.1f} m",
             "Narrower free gaps carry no traffic (wider than a two-wheeler with clearance)",
-            "entered" if cfg.get("min_usable_gap_m") else "assumed (adjustable)"),
+            "entered" if cfg.get("min_usable_gap_m") else "default (adjustable)"),
         row("Operating speed", f"{p['operating_speed_kmh']:.0f} km/h",
             "Measured" if p["operating_speed_measured"] else "Draft IRC:106 (2022) Table 3 by road class",
             "measured" if p["operating_speed_measured"] else "IRC (draft)"),
         row("Pothole capacity factor", "C_lane(V_pothole)/C_lane(V_normal)",
             "Draft IRC:106 Eq. 5; speed " + ("measured" if cfg.get("pothole_speed_kmh") else
-                                             "assumed 90/80/60 % of operating speed for IRC:82 small/medium/large"),
-            "measured" if cfg.get("pothole_speed_kmh") else "assumed speed (IRC formula)"),
+                                             "default 90/80/60 % of operating speed for IRC:82 small/medium/large"),
+            "measured" if cfg.get("pothole_speed_kmh") else "default speed (IRC formula)"),
         row("Pothole class", "IRC:82-2015 cl. 7.5.3.4",
             "width + measured depth" if cfg.get("pothole_depth_mm") else "measured width; depth not measurable from a photo",
             "IRC"),
@@ -971,10 +969,10 @@ def assumption_register(result: dict, p: dict, ex: dict, cfg: dict, thr_calibrat
         row("Parking occupancy", p["parking_occupancy_pct"],
             p["parking_occupancy_source"] or "unknown: lowest band used if parking is seen",
             "measured" if p["parking_occupancy_source"] == "measured from photos/frames"
-            else ("entered" if p["parking_occupancy_source"] else "assumed")),
+            else ("entered" if p["parking_occupancy_source"] else "default")),
         row("Traffic composition", {k: round(v, 2) for k, v in p["composition"].items()},
             "Classified count" if p["composition_entered"] else "Typical Indian urban mix",
-            "entered" if p["composition_entered"] else "assumed"),
+            "entered" if p["composition_entered"] else "default"),
         row("PCU factors", p["pcu_per_type"], "IRC:106-1990 Table 1, by each type's own share", "IRC"),
         row("Demand for V/C", f"{p['demand_pcu_hr']:.0f} PCU/h",
             "Observed volume" if p["demand_is_observed"] else "IRC design service volume",
@@ -982,9 +980,9 @@ def assumption_register(result: dict, p: dict, ex: dict, cfg: dict, thr_calibrat
         row("Speed at each LOS", "90/70/50/40/33/29 % of free-flow speed", "IRC:106-1990 cl. 5.3", "IRC"),
         row("Detection thresholds", "per-class confidence",
             "Calibrated on a validation set" if thr_calibrated else "Built-in defaults (run tools/calibrate_thresholds.py)",
-            "measured" if thr_calibrated else "assumed"),
+            "measured" if thr_calibrated else "default"),
         row("Moving vs parked vehicles", "'vehicle' = moving traffic",
-            "A single photo cannot show motion; parked vehicles count only if labelled illegal_parking", "assumed"),
+            "A single photo cannot show motion; parked vehicles count only if labelled illegal_parking", "default"),
         row("Obstruction length", "bottleneck principle",
             "A point obstruction limits the whole segment's throughput", "traffic-flow principle"),
     ]

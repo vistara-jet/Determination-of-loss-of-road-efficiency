@@ -4,7 +4,7 @@ Calibrate per-class confidence thresholds on a labelled validation set.
 For each class, the threshold that maximises F1 (precision/recall balance)
 is chosen and written to models/thresholds.json, which core.py loads
 automatically. Without this file the built-in default thresholds are used
-and the result's "assumptions" list says so.
+and the result's "inputs_and_sources" list says so.
 
 Usage (YOLO-format dataset, the same one used for training):
     python tools/calibrate_thresholds.py \
