@@ -222,79 +222,9 @@
               </div>
             </div>
 
-            <div class="adv-group">
-              <div class="adv-title">2 · Speeds and potholes (field measurement)</div>
-              <div class="field-grid">
-                <div class="field">
-                  <label for="operating_speed_kmh">Operating speed, normal section (km/h)</label>
-                  <input type="number" id="operating_speed_kmh" name="operating_speed_kmh" step="1" min="5" max="120" placeholder="IRC default">
-                  <div class="field-hint">85th-percentile car speed; blank = IRC:106 (2022 draft) Table 3</div>
-                </div>
-                <div class="field">
-                  <label for="pothole_speed_kmh">Speed through pothole stretch (km/h)</label>
-                  <input type="number" id="pothole_speed_kmh" name="pothole_speed_kmh" step="1" min="1" max="120" placeholder="default by class">
-                </div>
-                <div class="field">
-                  <label for="pothole_depth_mm">Measured depth of largest pothole (mm)</label>
-                  <input type="number" id="pothole_depth_mm" name="pothole_depth_mm" step="1" min="1" max="500" placeholder="not measured">
-                </div>
-              </div>
-            </div>
-
-            <div class="adv-group">
-              <div class="adv-title">3 · Side friction (draft IRC:106 Tables 12–16)</div>
-              <div class="field-grid">
-                <div class="field">
-                  <label for="parking_occupancy_pct">On-street parking: % of segment length occupied</label>
-                  <input type="number" id="parking_occupancy_pct" name="parking_occupancy_pct" step="1" min="0" max="100" placeholder="measured from batch/video">
-                </div>
-                <div class="field">
-                  <label for="bus_stop_type">Bus stop on this segment</label>
-                  <select id="bus_stop_type" name="bus_stop_type">
-                    <option value="none">None</option>
-                    <option value="kerbside">Kerbside stop</option>
-                    <option value="bay">Bus bay</option>
-                  </select>
-                </div>
-                <div class="field">
-                  <label for="buses_per_hr">Buses stopping per hour</label>
-                  <input type="number" id="buses_per_hr" name="buses_per_hr" step="1" min="0">
-                </div>
-                <div class="field">
-                  <label for="access_movements_per_hr">Access points: entries + exits per hour</label>
-                  <input type="number" id="access_movements_per_hr" name="access_movements_per_hr" step="1" min="0">
-                </div>
-                <div class="field">
-                  <label for="ped_crossings_per_hr">Pedestrians crossing mid-block per hour</label>
-                  <input type="number" id="ped_crossings_per_hr" name="ped_crossings_per_hr" step="1" min="0">
-                </div>
-              </div>
-            </div>
-
-            <div class="adv-group">
-              <div class="adv-title">4 · Traffic (classified count)</div>
-              <div class="field-grid">
-                <div class="field">
-                  <label for="observed_volume_pcu_hr">Observed peak volume (PCU/h)</label>
-                  <input type="number" id="observed_volume_pcu_hr" name="observed_volume_pcu_hr" step="1" min="1" placeholder="blank = IRC design volume">
-                </div>
-              </div>
-              <div class="field-hint" style="margin:6px 0 4px;">Traffic composition, % of vehicles (blank = typical urban mix). PCU per IRC:106-1990 Table 1.</div>
-              <div class="comp-grid" id="comp-grid">
-                <label>Two-wheeler <input type="number" min="0" max="100" data-veh="two_wheeler"></label>
-                <label>Car / van <input type="number" min="0" max="100" data-veh="car"></label>
-                <label>Auto-rickshaw <input type="number" min="0" max="100" data-veh="auto_rickshaw"></label>
-                <label>LCV <input type="number" min="0" max="100" data-veh="lcv"></label>
-                <label>Truck / bus <input type="number" min="0" max="100" data-veh="truck_bus"></label>
-                <label>Tractor-trailer <input type="number" min="0" max="100" data-veh="tractor_trailer"></label>
-                <label>Cycle <input type="number" min="0" max="100" data-veh="cycle"></label>
-                <label>Cycle rickshaw <input type="number" min="0" max="100" data-veh="cycle_rickshaw"></label>
-                <label>Hand cart <input type="number" min="0" max="100" data-veh="hand_cart"></label>
-              </div>
-            </div>
 
             <div class="adv-group" id="adv-batch-row" style="display:none;">
-              <div class="adv-title">5 · Batch survey</div>
+              <div class="adv-title">2 · Batch survey</div>
               <div class="field-grid">
                 <div class="field">
                   <label for="photo_spacing_m">Spacing between photos (m)</label>
@@ -305,7 +235,7 @@
             </div>
 
             <div class="adv-group" id="adv-video-row" style="display:none;">
-              <div class="adv-title">5 · Video survey</div>
+              <div class="adv-title">2 · Video survey</div>
               <div class="field-grid">
                 <div class="field">
                   <label for="survey_speed_kmh">Survey vehicle speed (km/h)</label>
